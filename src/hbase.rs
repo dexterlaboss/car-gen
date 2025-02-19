@@ -87,6 +87,7 @@ impl HBaseConnection {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn put_bincode_cells_with_retry<T>(
         &self,
         table: &str,
@@ -142,6 +143,7 @@ impl HBase {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn put_bincode_cells<T>(
         &mut self,
         table: &str,

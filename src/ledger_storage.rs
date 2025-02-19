@@ -16,7 +16,6 @@ use {
     std::{
         collections::HashMap,
         mem,
-        str::FromStr,
         sync::{
             Arc,
         },
@@ -57,7 +56,7 @@ impl From<HBaseError> for Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Minimal index entry stored in HBase (one row per block in the .car).
+/// CAR Index entry stored in HBase.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CarIndexEntry {
@@ -107,7 +106,6 @@ pub struct LedgerStorageConfig {
     pub namespace: Option<String>,
     pub uploader_config: UploaderConfig,
 
-    /// CAR file writer (no fallback)
     pub car_file_writer: Option<Arc<dyn CarFileWriter + Send + Sync>>,
 }
 
@@ -126,7 +124,7 @@ impl Default for LedgerStorageConfig {
 #[derive(Debug, Clone)]
 pub struct UploaderConfig {
     pub blocks_table_name: String,
-    pub use_md5_row_key_salt: bool,
+    pub _use_md5_row_key_salt: bool,
     pub use_blocks_compression: bool,
     pub hbase_write_to_wal: bool,
 }
@@ -135,7 +133,7 @@ impl Default for UploaderConfig {
     fn default() -> Self {
         Self {
             blocks_table_name: BLOCKS_TABLE_NAME.to_string(),
-            use_md5_row_key_salt: false,
+            _use_md5_row_key_salt: false,
             use_blocks_compression: true,
             hbase_write_to_wal: true,
         }
@@ -148,12 +146,10 @@ struct InMemoryCarAccumulator {
     min_slot: Option<Slot>,
     max_slot: Option<Slot>,
 
-    // Keep metadata for each block so we can create CarIndexEntry with real info
     block_metadata: HashMap<String, (String, u64, String)>,
     first_block_time: Option<u64>,
 }
 
-// MANUAL Default. We cannot `#[derive(Default)]` because InMemoryCarBuilder doesn't implement Default.
 impl Default for InMemoryCarAccumulator {
     fn default() -> Self {
         Self {
@@ -196,7 +192,7 @@ impl InMemoryCarAccumulator {
             .add_row(row_key, data)
             .map_err(|e| Error::IoError(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 
-        // Store metadata for final CarIndexEntry
+        // Store metadata for CarIndexEntry
         self.block_metadata.insert(
             row_key.to_string(),
             (
@@ -238,12 +234,11 @@ pub struct LedgerStorage {
     uploader_config: UploaderConfig,
     accumulator: Arc<Mutex<InMemoryCarAccumulator>>,
 
-    /// Must be present for writing to HDFS
     car_file_writer: Arc<dyn CarFileWriter + Send + Sync>,
 }
 
 impl LedgerStorage {
-    /// Create with config. Fails if no `car_file_writer`.
+    /// Create with config.
     pub async fn new_with_config(config: LedgerStorageConfig) -> Result<Self> {
         let connection = HBaseConnection::new(&config.address, config.namespace.as_deref()).await;
         let car_file_writer = config.car_file_writer.ok_or(Error::MissingCarFileWriter)?;
@@ -256,13 +251,14 @@ impl LedgerStorage {
         })
     }
 
-    /// Build with defaults (will fail if `car_file_writer` is None).
+    /// Create with defaults.
+    #[allow(dead_code)]
     pub async fn new() -> Result<Self> {
         Self::new_with_config(LedgerStorageConfig::default()).await
     }
 
     /// Convert `VersionedConfirmedBlock` to Protobuf + optional compression,
-    /// then add it to the in-memory accumulator with real block metadata.
+    /// then add it to the in-memory accumulator with block metadata.
     pub async fn upload_confirmed_block(
         &self,
         slot: Slot,
@@ -272,7 +268,6 @@ impl LedgerStorage {
 
         let proto_block: generated::ConfirmedBlock = confirmed_block.into();
 
-        // We do NOT consume .block_time, we borrow it:
         let block_time_i64 = proto_block
             .block_time
             .as_ref()
@@ -285,11 +280,9 @@ impl LedgerStorage {
             block_time_i64 as u64
         };
 
-        // Copy the blockhash and previous_blockhash
         let block_hash = proto_block.blockhash.clone();
         let previous_block_hash = proto_block.previous_blockhash.clone();
 
-        // Now we can still call proto_block.encoded_len() without partial move:
         let mut buf = Vec::with_capacity(proto_block.encoded_len());
         proto_block.encode(&mut buf).map_err(Error::EncodingError)?;
 
@@ -332,7 +325,6 @@ impl LedgerStorage {
 
         drop(acc);
 
-        // Always writes to HDFS
         let car_path = self
             .car_file_writer
             .write_car(&car_bytes, min_slot, max_slot, first_block_time)
@@ -344,11 +336,9 @@ impl LedgerStorage {
             min_slot, max_slot, car_path
         );
 
-        // We'll store rows into the table from config
         let table_name = self.uploader_config.blocks_table_name.clone();
         let mut tasks = Vec::with_capacity(index_entries.len());
 
-        // Retrieve metadata from accumulator
         let mut acc = self.accumulator.lock().await;
 
         for be in index_entries {
@@ -370,7 +360,7 @@ impl LedgerStorage {
                 end_slot: max_slot,
                 timestamp: Some(UnixTimestamp { timestamp: first_block_time as i64 }),
                 previous_block_hash,
-                block_height: None, // Assuming we don't have block height available
+                block_height: None,
                 block_time: Some(UnixTimestamp { timestamp: block_time as i64 }),
             };
 
@@ -388,7 +378,7 @@ impl LedgerStorage {
                 ).await
             }));
         }
-        drop(acc); // done reading metadata
+        drop(acc);
 
         // Await all tasks
         let results = futures::future::join_all(tasks).await;

@@ -14,8 +14,8 @@ pub trait PathGenerationStrategy: Debug + Send + Sync {
     fn generate_path(&self, min_slot: Slot, max_slot: Slot, block_time: u64) -> String;
 }
 
-/// Example daily-partitioned directory layout:
-/// `/base_path/YYYY/MM/DD/blocks_{min_slot}_{max_slot}.car`
+/// Daily-partitioned directory layout implementation:
+/// `/base_path/year=YYYY/month=MM/day=DD/{min_slot}-{max_slot}.blocks.car`
 #[derive(Debug)]
 pub struct DailyPartitionedPathStrategy {
     pub base_path: String,
@@ -61,7 +61,7 @@ impl<S: PathGenerationStrategy> HdfsWriter<S> {
 #[async_trait]
 impl<S: PathGenerationStrategy + Send + Sync> CarFileWriter for HdfsWriter<S> {
     async fn write_car(&self, car_bytes: &[u8], min_slot: Slot, max_slot: Slot, block_time: u64) -> Result<String> {
-        // Generate the final file path using the provided block_time
+        // Generate the file path using the provided block_time
         let path = self.strategy.generate_path(min_slot, max_slot, block_time);
         info!("HdfsWriter: Writing CAR file to path: {}", path);
 
@@ -82,12 +82,11 @@ impl<S: PathGenerationStrategy + Send + Sync> CarFileWriter for HdfsWriter<S> {
         // Explicitly close the file
         file_writer.close().await?;
 
-        // Return the path for indexing / reference
+        // Return the path
         Ok(path)
     }
 }
 
-/// Implement `Debug` for `HdfsWriter`
 impl<S: PathGenerationStrategy> Debug for HdfsWriter<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("HdfsWriter")

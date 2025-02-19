@@ -48,7 +48,7 @@ where
 {
     pub fn new(
         storage: S,
-        parser: Arc<dyn FormatParser + Send + Sync>, // Fixed number of arguments
+        parser: Arc<dyn FormatParser + Send + Sync>,
         block_processor: BlockProcessor,
         decompressor: Box<dyn Decompressor + Send + Sync>,
     ) -> Self {

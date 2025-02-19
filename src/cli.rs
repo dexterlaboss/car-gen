@@ -3,13 +3,6 @@ use {
         App,
         Arg,
     },
-    solana_clap_utils::{
-        input_validators::{
-            is_pubkey,
-            is_parsable,
-            is_within_range,
-        },
-    },
 };
 
 pub fn block_uploader_app<'a>(version: &'a str) -> App<'a, 'a> {

@@ -1,5 +1,5 @@
 use {
-    anyhow::{anyhow, Context, Result},
+    anyhow::{anyhow, Result},
     serde_json::Value,
     std::str,
     solana_binary_encoder::transaction_status::EncodedConfirmedBlock,
@@ -13,11 +13,12 @@ pub trait MessageDecoder: Send + Sync {
 }
 
 /// Represents what the raw payload actually decodes into.
+#[allow(dead_code)]
 pub enum DecodedPayload {
     /// A file path that should be processed by `Processor::process_file`.
     FilePath(String),
 
-    /// A block ID plus the block data that should be uploaded to the storage.
+    // /// A block ID plus the block data that should be uploaded to the storage.
     Block(u64, EncodedConfirmedBlock),
 }
 

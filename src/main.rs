@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
 
     // Build an HdfsWriter with appropriate path generation strategy
     let strategy = DailyPartitionedPathStrategy {
-        base_path: "/chain-archives/sol/car_test".to_string(),
+        base_path: config.hdfs_path.clone(),
     };
     let hdfs_writer = Arc::new(HdfsWriter::new(hdfs_client_writer, strategy))
         as Arc<dyn CarFileWriter + Send + Sync>;

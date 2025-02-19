@@ -25,6 +25,8 @@ pub struct Config {
 
     pub hdfs_url: String,
 
+    pub hdfs_path: String,
+
     pub _namespace: Option<String>,
 }
 

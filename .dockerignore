@@ -1,0 +1,5 @@
+target/*
+!target/release/car-gen
+tmp/*
+.git
+.idea

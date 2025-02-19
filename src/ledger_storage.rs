@@ -1,4 +1,3 @@
-// src/ledger_storage.rs
 
 use {
     crate::{
@@ -16,9 +15,7 @@ use {
     std::{
         collections::HashMap,
         mem,
-        sync::{
-            Arc,
-        },
+        sync::Arc,
     },
     tokio::sync::Mutex,
     prost::Message,
@@ -29,7 +26,7 @@ use {
     solana_sdk::clock::Slot,
 };
 
-/// Our custom error type
+/// Custom error type
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("HBase: {0}")]
@@ -146,8 +143,10 @@ struct InMemoryCarAccumulator {
     min_slot: Option<Slot>,
     max_slot: Option<Slot>,
 
-    block_metadata: HashMap<String, (String, u64, String)>,
-    first_block_time: Option<u64>,
+    // Store metadata for each block: (block_hash, block_time, previous_block_hash, block_height)
+    block_metadata: HashMap<String, (String, Option<i64>, String, Option<u64>)>,
+    // First block_time from a batch
+    first_block_time: Option<i64>,
 }
 
 impl Default for InMemoryCarAccumulator {
@@ -178,14 +177,17 @@ impl InMemoryCarAccumulator {
         row_key: &RowKey,
         data: &RowData,
         block_hash: &str,
-        block_time: u64,
+        block_time: Option<i64>,
         previous_block_hash: &str,
+        block_height: Option<u64>,
     ) -> Result<()> {
         self.min_slot = Some(self.min_slot.map_or(slot, |s| s.min(slot)));
         self.max_slot = Some(self.max_slot.map_or(slot, |s| s.max(slot)));
 
         if self.first_block_time.is_none() {
-            self.first_block_time = Some(block_time);
+            if let Some(t) = block_time {
+                self.first_block_time = Some(t);
+            }
         }
 
         self.builder
@@ -199,25 +201,28 @@ impl InMemoryCarAccumulator {
                 block_hash.to_string(),
                 block_time,
                 previous_block_hash.to_string(),
+                block_height,
             ),
         );
 
         Ok(())
     }
 
-    /// Finalize the CAR, returning the built bytes + index + the slot range
-    fn finalize_car(&mut self) -> Result<(Vec<u8>, Vec<BlockIndexEntry>, Slot, Slot, u64)> {
+    /// Finalize the CAR, returning the built bytes + index + the slot range + first block time
+    fn finalize_car(
+        &mut self,
+    ) -> Result<(Vec<u8>, Vec<BlockIndexEntry>, Slot, Slot, Option<i64>)> {
         let min_slot = self.min_slot.unwrap_or(0);
         let max_slot = self.max_slot.unwrap_or(0);
-        let first_block_time = self.first_block_time.ok_or_else(|| {
-            Error::IoError(std::io::Error::new(std::io::ErrorKind::Other, "Missing first block time"))
-        })?;
+
+        let first_block_time = self.first_block_time;
 
         let old_builder = mem::replace(&mut self.builder, InMemoryCarBuilder::new());
         let (car_bytes, index) = old_builder
             .finalize()
             .map_err(|e| Error::IoError(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 
+        // Reset fields
         self.min_slot = None;
         self.max_slot = None;
         self.first_block_time = None;
@@ -257,8 +262,7 @@ impl LedgerStorage {
         Self::new_with_config(LedgerStorageConfig::default()).await
     }
 
-    /// Convert `VersionedConfirmedBlock` to Protobuf + optional compression,
-    /// then add it to the in-memory accumulator with block metadata.
+    /// Convert `VersionedConfirmedBlock` to Protobuf + optional compression.
     pub async fn upload_confirmed_block(
         &self,
         slot: Slot,
@@ -266,23 +270,16 @@ impl LedgerStorage {
     ) -> Result<()> {
         info!("upload_confirmed_block: slot={}", slot);
 
+        // Extract block metadata
+        let block_hash = confirmed_block.blockhash.clone();
+        let previous_block_hash = confirmed_block.previous_blockhash.clone();
+        let block_time = confirmed_block.block_time;
+        let block_height = confirmed_block.block_height;
+
+        // Convert the block to Protobuf
         let proto_block: generated::ConfirmedBlock = confirmed_block.into();
 
-        let block_time_i64 = proto_block
-            .block_time
-            .as_ref()
-            .map_or(0, |ts| ts.timestamp);
-
-        // Convert i64 -> u64 by clamping negative to zero
-        let block_time = if block_time_i64 < 0 {
-            0
-        } else {
-            block_time_i64 as u64
-        };
-
-        let block_hash = proto_block.blockhash.clone();
-        let previous_block_hash = proto_block.previous_blockhash.clone();
-
+        // Encode + (optionally) compress
         let mut buf = Vec::with_capacity(proto_block.encoded_len());
         proto_block.encode(&mut buf).map_err(Error::EncodingError)?;
 
@@ -292,6 +289,7 @@ impl LedgerStorage {
             compress(CompressionMethod::NoCompression, &buf).map_err(Error::IoError)?
         };
 
+        // Add to accumulator
         let row_key = format!("{:016x}", slot);
 
         let mut acc = self.accumulator.lock().await;
@@ -302,6 +300,7 @@ impl LedgerStorage {
             &block_hash,
             block_time,
             &previous_block_hash,
+            block_height,
         )?;
 
         Ok(())
@@ -315,19 +314,16 @@ impl LedgerStorage {
             return Ok(());
         }
 
-        let (
-            car_bytes,
-            index_entries,
-            min_slot,
-            max_slot,
-            first_block_time
-        ) = acc.finalize_car()?;
-
+        let (car_bytes, index_entries, min_slot, max_slot, first_block_time) =
+            acc.finalize_car()?;
         drop(acc);
+
+        // Convert `Option<i64>` -> `u64` for the writer if needed
+        let first_block_time_for_writer = first_block_time.unwrap_or_default().max(0) as u64;
 
         let car_path = self
             .car_file_writer
-            .write_car(&car_bytes, min_slot, max_slot, first_block_time)
+            .write_car(&car_bytes, min_slot, max_slot, first_block_time_for_writer)
             .await
             .map_err(|e| Error::IoError(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 
@@ -344,13 +340,20 @@ impl LedgerStorage {
         for be in index_entries {
             let slot_val = u64::from_str_radix(&be.row_key, 16).unwrap_or(0);
 
-            let (block_hash, block_time, previous_block_hash) = acc
+            // Extract stored metadata for this block
+            let (block_hash, block_time, previous_block_hash, block_height) = acc
                 .block_metadata
                 .remove(&be.row_key)
                 .unwrap_or_else(|| {
-                    ("unknown_hash".to_string(), 0, "unknown_hash".to_string())
+                    (
+                        "unknown_hash".to_string(),
+                        None,
+                        "unknown_hash".to_string(),
+                        None,
+                    )
                 });
 
+            // Build the CarIndexEntry
             let index_proto = CarIndexEntry {
                 slot: slot_val,
                 block_hash,
@@ -358,10 +361,10 @@ impl LedgerStorage {
                 length: be.length,
                 start_slot: min_slot,
                 end_slot: max_slot,
-                timestamp: Some(UnixTimestamp { timestamp: first_block_time as i64 }),
+                timestamp: first_block_time.map(|t| UnixTimestamp { timestamp: t }),
                 previous_block_hash,
-                block_height: None,
-                block_time: Some(UnixTimestamp { timestamp: block_time as i64 }),
+                block_height: block_height.map(|h| BlockHeight { block_height: h }),
+                block_time: block_time.map(|t| UnixTimestamp { timestamp: t }),
             };
 
             let row_key = be.row_key;

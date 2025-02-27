@@ -53,44 +53,13 @@ impl From<HBaseError> for Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// CAR Index entry stored in HBase.
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CarIndexEntry {
-    #[prost(uint64, tag = "1")]
-    pub slot: u64,
-    #[prost(string, tag = "2")]
-    pub block_hash: ::prost::alloc::string::String,
-    #[prost(uint64, tag = "3")]
-    pub offset: u64,
-    #[prost(uint64, tag = "4")]
-    pub length: u64,
-    #[prost(uint64, tag = "5")]
-    pub start_slot: u64,
-    #[prost(uint64, tag = "6")]
-    pub end_slot: u64,
-    #[prost(message, optional, tag = "7")]
-    pub timestamp: ::core::option::Option<UnixTimestamp>,
-    #[prost(string, tag = "8")]
-    pub previous_block_hash: ::prost::alloc::string::String,
-    #[prost(message, optional, tag = "9")]
-    pub block_height: ::core::option::Option<BlockHeight>,
-    #[prost(message, optional, tag = "10")]
-    pub block_time: ::core::option::Option<UnixTimestamp>,
-}
 
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct UnixTimestamp {
-    #[prost(int64, tag = "1")]
-    pub timestamp: i64,
-}
-
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BlockHeight {
-    #[prost(uint64, tag = "1")]
-    pub block_height: u64,
+pub mod car_index {
+    include!(concat!(
+    env!("OUT_DIR"),
+    "/solana.storage.car_index_entry.rs"
+    ));
 }
 
 pub const DEFAULT_ADDRESS: &str = "127.0.0.1:9090";
@@ -354,17 +323,17 @@ impl LedgerStorage {
                 });
 
             // Build the CarIndexEntry
-            let index_proto = CarIndexEntry {
+            let index_proto = car_index::CarIndexEntry {
                 slot: slot_val,
                 block_hash,
                 offset: be.offset,
                 length: be.length,
                 start_slot: min_slot,
                 end_slot: max_slot,
-                timestamp: first_block_time.map(|t| UnixTimestamp { timestamp: t }),
+                timestamp: first_block_time.map(|t| car_index::UnixTimestamp { timestamp: t }),
                 previous_block_hash,
-                block_height: block_height.map(|h| BlockHeight { block_height: h }),
-                block_time: block_time.map(|t| UnixTimestamp { timestamp: t }),
+                block_height: block_height.map(|h| car_index::BlockHeight { block_height: h }),
+                block_time: block_time.map(|t| car_index::UnixTimestamp { timestamp: t }),
             };
 
             let row_key = be.row_key;
@@ -373,7 +342,7 @@ impl LedgerStorage {
             let write_to_wal = self.uploader_config.hbase_write_to_wal;
 
             tasks.push(tokio::spawn(async move {
-                conn.put_protobuf_cells_with_retry::<CarIndexEntry>(
+                conn.put_protobuf_cells_with_retry::<car_index::CarIndexEntry>(
                     &table_name_cloned,
                     &[(row_key, index_proto)],
                     false,

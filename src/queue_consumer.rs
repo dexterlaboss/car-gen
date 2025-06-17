@@ -55,6 +55,7 @@ pub struct KafkaConfig {
     pub auto_offset_reset: String,
     pub max_partition_fetch_bytes: u32,
     pub max_in_flight_requests_per_connection: u32,
+    pub max_poll_interval_ms: u32,
     pub log_level: RDKafkaLogLevel,
 }
 
@@ -69,6 +70,7 @@ impl Default for KafkaConfig {
             auto_offset_reset: "earliest".to_string(),
             max_partition_fetch_bytes: 10 * 1024 * 1024, // 10 MiB
             max_in_flight_requests_per_connection: 1,
+            max_poll_interval_ms: 300000,
             log_level: RDKafkaLogLevel::Debug,
         }
     }
@@ -97,6 +99,7 @@ impl KafkaQueueConsumer {
                 "max.in.flight.requests.per.connection",
                 config.max_in_flight_requests_per_connection.to_string(),
             )
+            .set("max.poll.interval.ms", config.max_poll_interval_ms.to_string())
             .set_log_level(config.log_level)
             .create()?;
 

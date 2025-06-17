@@ -764,7 +764,7 @@ dependencies = [
 
 [[package]]
 name = "car-gen"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "anyhow",
  "async-compression",

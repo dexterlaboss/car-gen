@@ -117,6 +117,7 @@ async fn main() -> Result<()> {
         auto_offset_reset: "earliest".to_string(),
         max_partition_fetch_bytes: 10 * 1024 * 1024,
         max_in_flight_requests_per_connection: 1,
+        max_poll_interval_ms: config.kafka_max_poll_interval_ms,
         log_level: RDKafkaLogLevel::Debug,
     };
 

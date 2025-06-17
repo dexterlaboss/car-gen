@@ -21,6 +21,8 @@ pub struct Config {
     /// Kafka group id
     pub kafka_group_id: String,
 
+    pub kafka_max_poll_interval_ms: u32,
+
     pub hbase_address: String,
 
     pub hdfs_url: String,

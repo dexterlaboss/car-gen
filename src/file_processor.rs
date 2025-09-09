@@ -104,7 +104,10 @@ where
         while let Some(line_result) = record_stream.next_record().await {
             match line_result {
                 Ok(line) => self.process_line(&line).await,
-                Err(e) => error!("Error reading line: {e}"),
+                Err(e) => {
+                    error!("Error reading line from file '{file_path}': {e} [Skipping file]");
+                    break;
+                }
             }
         }
 

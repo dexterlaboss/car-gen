@@ -1,7 +1,11 @@
 use {
     anyhow::{Context, Result},
     serde_json::Value,
-    solana_binary_encoder::transaction_status::EncodedConfirmedBlock,
+    // solana_block_decoder::transaction_status::EncodedConfirmedBlock,
+    // solana_transaction_status::EncodedConfirmedBlock,
+    solana_block_decoder::{
+        block::encoded_block::EncodedConfirmedBlock,
+    },
 };
 
 pub trait FormatParser: Send + Sync {

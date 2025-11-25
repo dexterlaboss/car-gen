@@ -4,11 +4,16 @@ use {
         hbase::{Error as HBaseError, HBaseConnection},
         hdfs_writer::CarFileWriter,
     },
-    solana_binary_encoder::{
+    // solana_block_decoder::{
+        // compression::{compress, compress_best, CompressionMethod},
+        // convert::generated,
+        // transaction_status::VersionedConfirmedBlock,
+    // },
+    dexter_storage_proto_tx::convert::generated,
+    solana_storage_utils::{
         compression::{compress, compress_best, CompressionMethod},
-        convert::generated,
-        transaction_status::VersionedConfirmedBlock,
     },
+    solana_transaction_status::VersionedConfirmedBlock,
     log::{debug, info},
     thiserror::Error,
     tokio::task::JoinError,

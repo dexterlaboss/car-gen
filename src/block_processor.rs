@@ -3,12 +3,17 @@ use {
         ledger_storage::LedgerStorage
     },
     anyhow::{Context, Result},
-    solana_binary_encoder::{
-        transaction_status::{
-            BlockEncodingOptions, EncodedConfirmedBlock, TransactionDetails, UiTransactionEncoding,
-            UiTransactionStatusMeta,
-        },
+    solana_block_decoder::{
+        // transaction_status::{
+        //     BlockEncodingOptions, EncodedConfirmedBlock, TransactionDetails, UiTransactionEncoding,
+        //     UiTransactionStatusMeta,
+        // },
+        block::encoded_block::EncodedConfirmedBlock,
         convert_block,
+    },
+    solana_transaction_status::{
+        BlockEncodingOptions, TransactionDetails, UiTransactionEncoding,
+        UiTransactionStatusMeta,
     },
     serde_json,
 };
@@ -85,8 +90,11 @@ impl BlockProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_binary_encoder::transaction_status::{
-        EncodedConfirmedBlock,
+    // use solana_block_decoder::transaction_status::{
+    //     EncodedConfirmedBlock,
+    // };
+    use solana_block_decoder::{
+        block::encoded_block::EncodedConfirmedBlock,
     };
     use serde_json;
 

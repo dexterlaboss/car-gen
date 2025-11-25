@@ -1,5 +1,5 @@
 # Use a minimal Rust image for building
-FROM rust:1.83-slim-bullseye AS build
+FROM rust:1.84-slim-bullseye AS build
 
 # Install only necessary dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

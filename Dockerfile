@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libudev-dev \
     libssl-dev \
+    libsasl2-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -28,6 +29,7 @@ FROM debian:bullseye-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libudev-dev \
     libssl-dev \
+    libsasl2-2 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

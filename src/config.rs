@@ -1,4 +1,4 @@
-use ::{log::info, serde::Deserialize, std::env};
+use {log::info, serde::Deserialize, std::env};
 
 const DEFAULT_CONFIG_ENV_KEY: &str = "SVC_CONFIG_PATH";
 const CONFIG_PREFIX: &str = "SVC_";

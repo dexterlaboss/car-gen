@@ -1,9 +1,4 @@
-use {
-    clap::{
-        App,
-        Arg,
-    },
-};
+use clap::{App, Arg};
 
 pub fn block_uploader_app<'a>(version: &'a str) -> App<'a, 'a> {
     return App::new("solana-block-uploader-service")
@@ -20,6 +15,5 @@ pub fn block_uploader_app<'a>(version: &'a str) -> App<'a, 'a> {
                 .long("hbase-skip-wal")
                 .takes_value(false)
                 .help("If HBase should skip WAL when writing new data."),
-        )
-    ;
+        );
 }

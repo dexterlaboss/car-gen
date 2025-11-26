@@ -1,12 +1,10 @@
 use {
     anyhow::{anyhow, Result},
     serde_json::Value,
-    std::str,
     //solana_block_decoder::transaction_status::EncodedConfirmedBlock,
     // solana_transaction_status::EncodedConfirmedBlock,
-    solana_block_decoder::{
-        block::encoded_block::EncodedConfirmedBlock,
-    },
+    solana_block_decoder::block::encoded_block::EncodedConfirmedBlock,
+    std::str,
 };
 
 #[async_trait::async_trait]
@@ -32,8 +30,8 @@ pub struct JsonMessageDecoder;
 impl MessageDecoder for JsonMessageDecoder {
     async fn decode(&self, data: &[u8]) -> Result<DecodedPayload> {
         // Convert bytes to string
-        let msg_str = str::from_utf8(data)
-            .map_err(|e| anyhow!("Invalid UTF-8 in message: {}", e))?;
+        let msg_str =
+            str::from_utf8(data).map_err(|e| anyhow!("Invalid UTF-8 in message: {}", e))?;
 
         // Attempt to parse as JSON
         match serde_json::from_str::<Value>(msg_str) {
@@ -47,14 +45,14 @@ impl MessageDecoder for JsonMessageDecoder {
                 //
                 //     Ok(DecodedPayload::Block(block_id, block))
                 // } else {
-                    // If there's no "blockID", maybe it's still a file path in JSON form
-                    // e.g. {"filePath": "hdfs://my-file.gz"}
-                    if let Some(file_path) = json_val["filePath"].as_str() {
-                        Ok(DecodedPayload::FilePath(file_path.to_string()))
-                    } else {
-                        // unrecognized JSON structure
-                        Err(anyhow!("Unrecognized JSON payload: {}", msg_str))
-                    }
+                // If there's no "blockID", maybe it's still a file path in JSON form
+                // e.g. {"filePath": "hdfs://my-file.gz"}
+                if let Some(file_path) = json_val["filePath"].as_str() {
+                    Ok(DecodedPayload::FilePath(file_path.to_string()))
+                } else {
+                    // unrecognized JSON structure
+                    Err(anyhow!("Unrecognized JSON payload: {}", msg_str))
+                }
                 // }
             }
             Err(_) => {
@@ -64,7 +62,10 @@ impl MessageDecoder for JsonMessageDecoder {
                 if trimmed.ends_with(".gz") || trimmed.contains("hdfs://") {
                     Ok(DecodedPayload::FilePath(trimmed.to_string()))
                 } else {
-                    Err(anyhow!("Unable to decode message as JSON or file path: {}", trimmed))
+                    Err(anyhow!(
+                        "Unable to decode message as JSON or file path: {}",
+                        trimmed
+                    ))
                 }
             }
         }

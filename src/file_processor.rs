@@ -4,9 +4,9 @@ use {
         decompressor::Decompressor,
         file_storage::FileStorage,
         format_parser::FormatParser,
+        mem_utils::{format_bytes, get_peak_memory_bytes},
         message_decoder::DecodedPayload,
         record_stream::{NdJsonRecordStream, RecordStream},
-        mem_utils::{get_peak_memory_bytes, format_bytes}
     },
     anyhow::{Context, Result},
     log::{error, info},

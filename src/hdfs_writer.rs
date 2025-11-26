@@ -1,10 +1,10 @@
-use hdfs_native::{Client, WriteOptions};
 use anyhow::Result;
-use solana_sdk::clock::Slot;
-use log::info;
-use chrono::{Datelike, TimeZone, Utc};
 use async_trait::async_trait;
 use bytes::Bytes;
+use chrono::{Datelike, TimeZone, Utc};
+use hdfs_native::{Client, WriteOptions};
+use log::info;
+use solana_sdk::clock::Slot;
 use std::fmt::{self, Debug};
 
 /// A trait for generating HDFS paths for the CAR file, e.g.,
@@ -23,7 +23,10 @@ pub struct DailyPartitionedPathStrategy {
 
 impl PathGenerationStrategy for DailyPartitionedPathStrategy {
     fn generate_path(&self, min_slot: Slot, max_slot: Slot, block_time: u64) -> String {
-        let datetime = Utc.timestamp_opt(block_time as i64, 0).single().unwrap_or_else(|| Utc::now());
+        let datetime = Utc
+            .timestamp_opt(block_time as i64, 0)
+            .single()
+            .unwrap_or_else(|| Utc::now());
         format!(
             "{}/year={:04}/month={:02}/day={:02}/{}-{}.blocks.car",
             self.base_path,
@@ -41,7 +44,13 @@ impl PathGenerationStrategy for DailyPartitionedPathStrategy {
 pub trait CarFileWriter: Debug + Send + Sync {
     /// Asynchronously write the provided `car_bytes` for blocks in [min_slot..max_slot]
     /// and return the final path where the file was written.
-    async fn write_car(&self, car_bytes: &[u8], min_slot: Slot, max_slot: Slot, block_time: u64) -> Result<String>;
+    async fn write_car(
+        &self,
+        car_bytes: &[u8],
+        min_slot: Slot,
+        max_slot: Slot,
+        block_time: u64,
+    ) -> Result<String>;
 }
 
 /// A writer that uses `hdfs_native::Client` + a `PathGenerationStrategy`.
@@ -60,7 +69,13 @@ impl<S: PathGenerationStrategy> HdfsWriter<S> {
 /// Implement `CarFileWriter` for `HdfsWriter`
 #[async_trait]
 impl<S: PathGenerationStrategy + Send + Sync> CarFileWriter for HdfsWriter<S> {
-    async fn write_car(&self, car_bytes: &[u8], min_slot: Slot, max_slot: Slot, block_time: u64) -> Result<String> {
+    async fn write_car(
+        &self,
+        car_bytes: &[u8],
+        min_slot: Slot,
+        max_slot: Slot,
+        block_time: u64,
+    ) -> Result<String> {
         // Generate the file path using the provided block_time
         let path = self.strategy.generate_path(min_slot, max_slot, block_time);
         info!("HdfsWriter: Writing CAR file to path: {}", path);

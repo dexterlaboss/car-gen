@@ -1,8 +1,7 @@
 use {
-    crate::{
-        ledger_storage::LedgerStorage
-    },
+    crate::ledger_storage::LedgerStorage,
     anyhow::{Context, Result},
+    serde_json,
     solana_block_decoder::{
         // transaction_status::{
         //     BlockEncodingOptions, EncodedConfirmedBlock, TransactionDetails, UiTransactionEncoding,
@@ -12,10 +11,8 @@ use {
         convert_block,
     },
     solana_transaction_status::{
-        BlockEncodingOptions, TransactionDetails, UiTransactionEncoding,
-        UiTransactionStatusMeta,
+        BlockEncodingOptions, TransactionDetails, UiTransactionEncoding, UiTransactionStatusMeta,
     },
-    serde_json,
 };
 
 pub struct BlockProcessor {
@@ -50,7 +47,7 @@ impl BlockProcessor {
                     "returnData": null,
                     "computeUnitsConsumed": 0
                 });
-                
+
                 // Convert JSON to UiTransactionStatusMeta
                 if let Ok(meta) = serde_json::from_value::<UiTransactionStatusMeta>(minimal_meta) {
                     tx.meta = Some(meta);
@@ -64,14 +61,15 @@ impl BlockProcessor {
     pub async fn handle_block(&self, block_id: u64, block: EncodedConfirmedBlock) -> Result<()> {
         // Preprocess the block to add metadata where missing
         let preprocessed_block = self.preprocess_block(block);
-        
+
         let options = BlockEncodingOptions {
             transaction_details: TransactionDetails::Full,
             show_rewards: true,
             max_supported_transaction_version: Some(0),
         };
-        let versioned_block = convert_block(preprocessed_block, UiTransactionEncoding::Json, options)
-            .map_err(|e| anyhow::anyhow!("Failed to convert block: {}", e))?;
+        let versioned_block =
+            convert_block(preprocessed_block, UiTransactionEncoding::Json, options)
+                .map_err(|e| anyhow::anyhow!("Failed to convert block: {}", e))?;
 
         self.storage
             .upload_confirmed_block(block_id, versioned_block)
@@ -83,7 +81,10 @@ impl BlockProcessor {
 
     /// Finalize blocks by calling finalize on ledger_storage.
     pub async fn finalize_blocks(&self) -> Result<()> {
-        self.storage.finalize().await.context("Failed to finalize blocks")
+        self.storage
+            .finalize()
+            .await
+            .context("Failed to finalize blocks")
     }
 }
 
@@ -93,10 +94,8 @@ mod tests {
     // use solana_block_decoder::transaction_status::{
     //     EncodedConfirmedBlock,
     // };
-    use solana_block_decoder::{
-        block::encoded_block::EncodedConfirmedBlock,
-    };
     use serde_json;
+    use solana_block_decoder::block::encoded_block::EncodedConfirmedBlock;
 
     /// Test the preprocess_block function with a JSON block containing transactions with null metadata.
     /// This test validates that the convert_block method from the ingestor-sdk can successfully process
@@ -146,8 +145,8 @@ mod tests {
         }"#;
 
         // Parse the block JSON into EncodedConfirmedBlock
-        let block: EncodedConfirmedBlock = serde_json::from_str(block_json)
-            .expect("Failed to parse block JSON");
+        let block: EncodedConfirmedBlock =
+            serde_json::from_str(block_json).expect("Failed to parse block JSON");
 
         // Create a dummy processor (without storage) just to test the preprocessing logic
         struct DummyProcessor;
@@ -174,9 +173,11 @@ mod tests {
                             "returnData": null,
                             "computeUnitsConsumed": 0
                         });
-                        
+
                         // Convert JSON to UiTransactionStatusMeta
-                        if let Ok(meta) = serde_json::from_value::<UiTransactionStatusMeta>(minimal_meta) {
+                        if let Ok(meta) =
+                            serde_json::from_value::<UiTransactionStatusMeta>(minimal_meta)
+                        {
                             tx.meta = Some(meta);
                         }
                     }
@@ -192,7 +193,10 @@ mod tests {
 
         // Verify that metadata was added to transactions that had null metadata
         for tx in &preprocessed_block.transactions {
-            assert!(tx.meta.is_some(), "Transaction should have metadata after preprocessing");
+            assert!(
+                tx.meta.is_some(),
+                "Transaction should have metadata after preprocessing"
+            );
         }
 
         // Test that convert_block works with the preprocessed block
@@ -203,6 +207,10 @@ mod tests {
         };
 
         let result = convert_block(preprocessed_block, UiTransactionEncoding::Json, options);
-        assert!(result.is_ok(), "convert_block should succeed with preprocessed block: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "convert_block should succeed with preprocessed block: {:?}",
+            result.err()
+        );
     }
 }

@@ -3,9 +3,7 @@ use {
     serde_json::Value,
     // solana_block_decoder::transaction_status::EncodedConfirmedBlock,
     // solana_transaction_status::EncodedConfirmedBlock,
-    solana_block_decoder::{
-        block::encoded_block::EncodedConfirmedBlock,
-    },
+    solana_block_decoder::block::encoded_block::EncodedConfirmedBlock,
 };
 
 pub trait FormatParser: Send + Sync {
@@ -36,8 +34,8 @@ impl FormatParser for NdJsonParser {
             return Ok(None);
         };
 
-        let block: EncodedConfirmedBlock = serde_json::from_value(value)
-            .context("Failed to parse EncodedConfirmedBlock")?;
+        let block: EncodedConfirmedBlock =
+            serde_json::from_value(value).context("Failed to parse EncodedConfirmedBlock")?;
 
         Ok(Some((block_id, block)))
     }

@@ -1,34 +1,27 @@
-
 use {
     crate::{
         hbase::{Error as HBaseError, HBaseConnection},
         hdfs_writer::CarFileWriter,
     },
-    // solana_block_decoder::{
-        // compression::{compress, compress_best, CompressionMethod},
-        // convert::generated,
-        // transaction_status::VersionedConfirmedBlock,
-    // },
-    dexter_storage_proto_tx::convert::generated,
-    solana_storage_utils::{
-        compression::{compress, compress_best, CompressionMethod},
-    },
-    solana_transaction_status::VersionedConfirmedBlock,
-    log::{debug, info},
-    thiserror::Error,
-    tokio::task::JoinError,
-    std::{
-        collections::HashMap,
-        mem,
-        sync::Arc,
-    },
-    tokio::sync::Mutex,
-    prost::Message,
     dexter_ipfs_car::{
         types::{RowData, RowKey},
         writer::{BlockIndexEntry, InMemoryCarBuilder},
     },
+    // solana_block_decoder::{
+    // compression::{compress, compress_best, CompressionMethod},
+    // convert::generated,
+    // transaction_status::VersionedConfirmedBlock,
+    // },
+    dexter_storage_proto_tx::convert::generated,
+    log::{debug, info},
+    prost::Message,
     solana_sdk::clock::Slot,
+    solana_storage_utils::compression::{compress, compress_best, CompressionMethod},
+    solana_transaction_status::VersionedConfirmedBlock,
+    std::{collections::HashMap, mem, sync::Arc},
+    thiserror::Error,
+    tokio::sync::Mutex,
+    tokio::task::JoinError,
 };
 
 /// Custom error type
@@ -58,12 +51,11 @@ impl From<HBaseError> for Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub mod car_index {
     include!(concat!(
-    env!("OUT_DIR"),
-    "/solana.storage.car_index_entry.rs"
+        env!("OUT_DIR"),
+        "/solana.storage.car_index_entry.rs"
     ));
 }
 
@@ -183,9 +175,7 @@ impl InMemoryCarAccumulator {
     }
 
     /// Finalize the CAR, returning the built bytes + index + the slot range + first block time
-    fn finalize_car(
-        &mut self,
-    ) -> Result<(Vec<u8>, Vec<BlockIndexEntry>, Slot, Slot, Option<i64>)> {
+    fn finalize_car(&mut self) -> Result<(Vec<u8>, Vec<BlockIndexEntry>, Slot, Slot, Option<i64>)> {
         let min_slot = self.min_slot.unwrap_or(0);
         let max_slot = self.max_slot.unwrap_or(0);
 
@@ -315,10 +305,8 @@ impl LedgerStorage {
             let slot_val = u64::from_str_radix(&be.row_key, 16).unwrap_or(0);
 
             // Extract stored metadata for this block
-            let (block_hash, block_time, previous_block_hash, block_height) = acc
-                .block_metadata
-                .remove(&be.row_key)
-                .unwrap_or_else(|| {
+            let (block_hash, block_time, previous_block_hash, block_height) =
+                acc.block_metadata.remove(&be.row_key).unwrap_or_else(|| {
                     (
                         "unknown_hash".to_string(),
                         None,
@@ -352,7 +340,8 @@ impl LedgerStorage {
                     &[(row_key, index_proto)],
                     false,
                     write_to_wal,
-                ).await
+                )
+                .await
             }));
         }
         drop(acc);

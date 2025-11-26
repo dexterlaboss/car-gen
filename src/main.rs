@@ -1,4 +1,3 @@
-
 use {
     crate::{
         block_processor::BlockProcessor,
@@ -8,20 +7,20 @@ use {
         file_processor::FileProcessor,
         file_storage::HdfsStorage,
         format_parser::{FormatParser, NdJsonParser},
+        hdfs_writer::{CarFileWriter, DailyPartitionedPathStrategy, HdfsWriter},
         ingestor::Ingestor,
         ledger_storage::{LedgerStorage, LedgerStorageConfig},
         message_decoder::{JsonMessageDecoder, MessageDecoder},
         queue_consumer::{KafkaConfig, KafkaQueueConsumer, QueueConsumer},
         queue_producer::KafkaQueueProducer,
-        hdfs_writer::{HdfsWriter, DailyPartitionedPathStrategy, CarFileWriter},
     },
-    ledger_storage::UploaderConfig,
-    std::{sync::Arc},
     anyhow::{Context, Result},
-    clap::{ArgMatches},
-    log::info,
+    clap::ArgMatches,
     hdfs_native::Client,
+    ledger_storage::UploaderConfig,
+    log::info,
     rdkafka::config::RDKafkaLogLevel,
+    std::sync::Arc,
 };
 
 // Our modules
@@ -29,18 +28,18 @@ mod block_processor;
 mod cli;
 mod config;
 mod decompressor;
+mod file_processor;
 mod file_storage;
 mod format_parser;
 mod ingestor;
 mod ledger_storage;
 mod message_decoder;
-mod file_processor;
 mod queue_consumer;
 mod queue_producer;
 mod record_stream;
 
-mod hdfs_writer;
 mod hbase;
+mod hdfs_writer;
 
 mod mem_utils;
 
@@ -54,18 +53,21 @@ async fn main() -> Result<()> {
 
     // Initialize logging
     env_logger::init();
-    info!("Starting the Solana block ingestor (Version: {})", SERVICE_VERSION);
+    info!(
+        "Starting the Solana block ingestor (Version: {})",
+        SERVICE_VERSION
+    );
 
     // Load main config
-    let config = Arc::new(Config::new());  // your custom config struct
+    let config = Arc::new(Config::new()); // your custom config struct
 
     // Create HDFS reader client
-    let hdfs_client_source = Client::new(&config.hdfs_url)
-        .context("Failed to create source HDFS client")?;
+    let hdfs_client_source =
+        Client::new(&config.hdfs_url).context("Failed to create source HDFS client")?;
 
     // Create HDFS writer client
-    let hdfs_client_writer = Client::new(&config.hdfs_url)
-        .context("Failed to create writer HDFS client")?;
+    let hdfs_client_writer =
+        Client::new(&config.hdfs_url).context("Failed to create writer HDFS client")?;
 
     // Build an HdfsWriter with appropriate path generation strategy
     let strategy = DailyPartitionedPathStrategy {
@@ -122,30 +124,23 @@ async fn main() -> Result<()> {
     };
 
     // Create queue consumer
-    let consumer: Box<dyn QueueConsumer + Send + Sync> = Box::new(
-        KafkaQueueConsumer::new(kafka_config, &[&config.kafka_consume_topic])?
-    );
+    let consumer: Box<dyn QueueConsumer + Send + Sync> = Box::new(KafkaQueueConsumer::new(
+        kafka_config,
+        &[&config.kafka_consume_topic],
+    )?);
 
     // Create queue producer
-    let kafka_producer = KafkaQueueProducer::new(
-        &config.kafka_brokers,
-        &config.kafka_produce_error_topic
-    )?;
+    let kafka_producer =
+        KafkaQueueProducer::new(&config.kafka_brokers, &config.kafka_produce_error_topic)?;
 
     // Create the ingestor
-    let mut ingestor = Ingestor::new(
-        consumer,
-        kafka_producer,
-        file_processor,
-        message_decoder,
-    );
+    let mut ingestor = Ingestor::new(consumer, kafka_producer, file_processor, message_decoder);
 
     // Run ingestion loop
     ingestor.run().await?;
 
     Ok(())
 }
-
 
 /// Process uploader-related CLI arguments
 #[allow(dead_code)]

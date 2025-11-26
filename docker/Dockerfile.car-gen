@@ -5,6 +5,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
     software-properties-common \
     cmake \
     build-essential \
+    pkg-config \
     wget \
     libclang-dev \
     libudev-dev \

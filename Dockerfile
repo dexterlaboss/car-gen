@@ -5,6 +5,7 @@ FROM rust:1.86-slim-bullseye AS build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     build-essential \
+    pkg-config \
     libudev-dev \
     libssl-dev \
     && apt-get clean \

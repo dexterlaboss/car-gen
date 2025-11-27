@@ -123,6 +123,7 @@ async fn main() -> Result<()> {
         log_level: RDKafkaLogLevel::Debug,
     };
 
+    let message_max_bytes = kafka_config.max_partition_fetch_bytes;
     // Create queue consumer
     let consumer: Box<dyn QueueConsumer + Send + Sync> = Box::new(KafkaQueueConsumer::new(
         kafka_config,
@@ -130,8 +131,12 @@ async fn main() -> Result<()> {
     )?);
 
     // Create queue producer
-    let kafka_producer =
-        KafkaQueueProducer::new(&config.kafka_brokers, &config.kafka_produce_error_topic)?;
+    let kafka_producer = KafkaQueueProducer::new(
+        &config.kafka_brokers,
+        &config.kafka_produce_error_topic,
+        // failed message is published to DLQ and should fit
+        message_max_bytes,
+    )?;
 
     // Create the ingestor
     let mut ingestor = Ingestor::new(consumer, kafka_producer, file_processor, message_decoder);

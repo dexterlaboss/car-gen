@@ -31,7 +31,7 @@ impl FormatParser for NdJsonParser {
                 .parse::<u64>()
                 .context("Failed to parse blockID string as u64")?
         } else {
-            return Ok(None);
+            return Err(anyhow::anyhow!("blockID missing or invalid in JSON line"));
         };
 
         let block: EncodedConfirmedBlock =

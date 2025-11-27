@@ -136,6 +136,10 @@ impl InMemoryCarAccumulator {
         self.min_slot.is_none()
     }
 
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
+
     /// Add a block's compressed bytes + metadata
     fn add_block(
         &mut self,
@@ -224,6 +228,11 @@ impl LedgerStorage {
     #[allow(dead_code)]
     pub async fn new() -> Result<Self> {
         Self::new_with_config(LedgerStorageConfig::default()).await
+    }
+
+    pub async fn reset_accumulator(&self) {
+        let mut acc = self.accumulator.lock().await;
+        acc.reset();
     }
 
     /// Convert `VersionedConfirmedBlock` to Protobuf + optional compression.

@@ -81,10 +81,16 @@ impl BlockProcessor {
 
     /// Finalize blocks by calling finalize on ledger_storage.
     pub async fn finalize_blocks(&self) -> Result<()> {
-        self.storage
+        let result = self
+            .storage
             .finalize()
             .await
-            .context("Failed to finalize blocks")
+            .context("Failed to finalize blocks");
+
+        // always reset the accumulator after `finalize` attempt
+        self.storage.reset_accumulator().await;
+
+        result
     }
 }
 

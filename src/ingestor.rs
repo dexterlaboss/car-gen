@@ -5,7 +5,8 @@ use {
     },
     anyhow::Result,
     bytes::BytesMut,
-    log::{info, warn},
+    log::{error, info},
+    serde_json::json,
     std::sync::Arc,
 };
 
@@ -48,7 +49,7 @@ where
                             Ok(decoded) => {
                                 // Process the decoded payload
                                 if let Err(e) = self.processor.process_decoded(decoded).await {
-                                    warn!("Error processing payload: {:?}", e);
+                                    error!("Error processing payload: {:?}", e);
                                     self.send_to_dead_letter(
                                         payload_str.as_bytes(),
                                         &e.to_string(),
@@ -57,11 +58,11 @@ where
                                 }
 
                                 if let Err(e) = self.consumer.commit(&queue_message).await {
-                                    warn!("Failed to commit offset: {:?}", e);
+                                    error!("Failed to commit offset: {:?}", e);
                                 }
                             }
                             Err(decode_err) => {
-                                warn!("Failed to decode payload: {:?}", decode_err);
+                                error!("Failed to decode payload: {:?}", decode_err);
                                 self.send_to_dead_letter(
                                     payload_str.as_bytes(),
                                     &decode_err.to_string(),
@@ -70,11 +71,11 @@ where
                             }
                         }
                     } else {
-                        warn!("Received empty payload from queue");
+                        error!("Received empty payload from queue");
                     }
                 }
                 Err(e) => {
-                    warn!("Error retrieving message from queue: {:?}", e);
+                    error!("Error retrieving message from queue: {:?}", e);
                 }
             }
         }
@@ -83,12 +84,15 @@ where
     }
 
     async fn send_to_dead_letter(&self, msg: &[u8], error_str: &str) {
-        let dlq_payload = format!(
-            "Failed to process '{}': {}",
-            String::from_utf8_lossy(msg),
-            error_str
-        );
+        let dlq_payload = json!({
+            "message": String::from_utf8_lossy(msg),
+            "error": error_str,
+        })
+        .to_string();
+
         let payload_bytes = BytesMut::from(dlq_payload.as_str());
-        let _ = self.producer.produce_message(payload_bytes, None).await;
+        if let Err(e) = self.producer.produce_message(payload_bytes, None).await {
+            error!("Failed to send to dead-letter queue: {:?}", e);
+        }
     }
 }

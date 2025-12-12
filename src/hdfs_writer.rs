@@ -81,7 +81,10 @@ impl<S: PathGenerationStrategy + Send + Sync> CarFileWriter for HdfsWriter<S> {
         info!("HdfsWriter: Writing CAR file to path: {}", path);
 
         // Create a file on HDFS (overwriting if it exists), using default WriteOptions
-        let mut file_writer = self.client.create(&path, WriteOptions::default()).await?;
+        let mut file_writer = self
+            .client
+            .create(&path, WriteOptions::default().overwrite(true))
+            .await?;
 
         // Write car_bytes in chunks
         let mut offset = 0;

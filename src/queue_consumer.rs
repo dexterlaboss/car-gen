@@ -65,7 +65,7 @@ impl Default for KafkaConfig {
             bootstrap_servers: "localhost:9092".to_string(),
             enable_partition_eof: false,
             session_timeout_ms: 10000,
-            enable_auto_commit: true,
+            enable_auto_commit: false,
             auto_offset_reset: "earliest".to_string(),
             max_partition_fetch_bytes: 10 * 1024 * 1024, // 10 MiB
             max_in_flight_requests_per_connection: 1,

@@ -306,7 +306,7 @@ impl LedgerStorage {
         );
 
         let table_name = self.uploader_config.blocks_table_name.clone();
-        let mut tasks = Vec::with_capacity(index_entries.len());
+        let mut car_index_entry_cells = Vec::with_capacity(index_entries.len());
 
         let mut acc = self.accumulator.lock().await;
 
@@ -339,31 +339,19 @@ impl LedgerStorage {
             };
 
             let row_key = be.row_key;
-            let conn = self.connection.clone();
-            let table_name_cloned = table_name.clone();
-            let write_to_wal = self.uploader_config.hbase_write_to_wal;
-
-            tasks.push(tokio::spawn(async move {
-                conn.put_protobuf_cells_with_retry::<car_index::CarIndexEntry>(
-                    &table_name_cloned,
-                    &[(row_key, index_proto)],
-                    false,
-                    write_to_wal,
-                )
-                .await
-            }));
+            car_index_entry_cells.push((row_key, index_proto));
         }
         drop(acc);
 
-        // Await all tasks
-        let results = futures::future::join_all(tasks).await;
-        for res in results {
-            match res {
-                Ok(Err(hbase_err)) => return Err(Error::HBaseError(hbase_err)),
-                Err(join_err) => return Err(Error::TokioJoinError(join_err)),
-                _ => (),
-            }
-        }
+        self.connection
+            .put_protobuf_cells_with_retry::<car_index::CarIndexEntry>(
+                &table_name,
+                &car_index_entry_cells,
+                false,
+                self.uploader_config.hbase_write_to_wal,
+            )
+            .await
+            .map_err(|err| Error::HBaseError(err))?;
 
         Ok(())
     }
